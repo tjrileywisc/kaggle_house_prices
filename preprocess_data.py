@@ -107,12 +107,6 @@ def preprocess(unskew):
         if pd.isnull(train_df[feat]).any():
             print(feat)
 
-
-
-
-
-
-
     pickle.dump(train_targets, open("./data/train_targets.pickle", "wb"))
     train_df.to_pickle("./data/train_df.pickle")
     test_df.to_pickle("./data/test_df.pickle")
