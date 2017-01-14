@@ -1,0 +1,9 @@
+
+# to ignore
+data/
+.vscode/
+largevis.exe
+*.csv
+*.pickle
+__pycache__/
+.ipynb_checkpoints/
