@@ -6,6 +6,7 @@ from sklearn.metrics import make_scorer, mean_squared_error
 import numpy as np
 import pandas as pd
 import pickle
+import matplotlib.pyplot as plt
 from preprocess_data import preprocess
 
 import os
@@ -39,7 +40,17 @@ print(scores)
 
 clf.fit(X, y)
 
-result = clf.predict(test_df.values)
+# plot the feature importances
+importances = clf.feature_importances_
+
+X = X[:, importances > 1e-3]
+# fit again with the filtered features
+clf.fit(X, y)
+
+test_features = test_df.values[:, importances > 1e-3]
+
+
+result = clf.predict(test_features)
 with open("results.csv", "w") as resultfile:
     resultfile.write("Id,SalePrice\n")
     for id, r in zip(test_df_ids, result):

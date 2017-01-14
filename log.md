@@ -10,3 +10,9 @@ Unskewing is done if the absolute value of the skew is greater than 1, and we ch
 unskewing transformation. See [preprocess_data.py](preprocess_data.py) for more information.
 
 Score: 0.1622
+
+3. Filtered out some of the values with low feature importance scores (< 1e-3) and refit
+Some improvment here so obviously some features need to be filtered out.
+
+Score: 0.15864
+

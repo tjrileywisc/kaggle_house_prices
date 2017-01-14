@@ -4,24 +4,52 @@ import pickle
 from scipy.stats import skew
 from scipy.special import boxcox1p
 
+def unskew_feature(feature, df, transform = None):
+    
+    # ignore some columns
+    if feature in ["YearBuilt", "YearRemodAdd", "GarageYrBlt", "SalePrice", "Id"]:
+        return df, None
+
+    if transform is None:
+        transforms = [boxcox1p, np.sqrt, np.log1p]
+        feat_values = df[feature].values
+
+        if abs(skew(feat_values)) > 1:
+            # value is skewed, try a transform, keep the winner
+            skews = [skew(feat_values)]
+            for transform in transforms:
+                if transform == boxcox1p:
+                    skews.append(abs(skew(boxcox1p(feat_values, 0.25))))
+                else:
+                    skews.append(abs(skew(transform(feat_values))))
+
+            best_transform = np.argmin(skews)
+            if best_transform == 0:
+                # don't transform because the skew didn't decrease very much
+                return df, None
+            else:
+                transform = transforms[best_transform - 1]
+                if transform == boxcox1p:
+                    df[feature] = boxcox1p(df[feature].values, 0.25)
+                else:
+                    df[feature] = transform(df[feature].values)
+    else:
+        if transform == boxcox1p:
+            df[feature] = boxcox1p(df[feature].values, 0.25)
+        else:
+            df[feature] = transform(df[feature].values)
+
+    return df, transform
+    
+
 def preprocess(unskew):
-    categorical_cols = """MSZoning Street Alley LotShape
-                        LandContour	Utilities	LotConfig	LandSlope	Neighborhood	Condition1
-                        Condition2	BldgType	HouseStyle
-                        RoofStyle	RoofMatl Exterior1st	Exterior2nd	MasVnrType
-                        ExterQual	ExterCond Foundation BsmtQual BsmtCond BsmtExposure	BsmtFinType1
-                        BsmtFinType2 Heating  HeatingQC	CentralAir	Electrical
-                        KitchenQual Functional FireplaceQu GarageType
-                        GarageFinish GarageQual GarageCond
-                        PavedDrive PoolQC	Fence	MiscFeature SaleType	SaleCondition"""
-
-    categorical_cols = categorical_cols.split()
-
-
+    
     train_df = pd.read_csv("./data/train.csv")
     test_df = pd.read_csv("./data/test.csv")
 
+    train_targets = train_df.pop("SalePrice")
     
+    categorical_cols = train_df.dtypes[train_df.dtypes == "object"].index
     numeric_features = train_df.dtypes[train_df.dtypes != "object"].index
 
     # populate NaNs with zeros in numerical features
@@ -37,46 +65,51 @@ def preprocess(unskew):
             test_df[feat].fillna(0, inplace = True)
 
     if unskew:
+        
+        
+
         # go through the (numerical) features and test for skewness;
         # if skewed, try box-cox transformation or several others
         # ref: http://shahramabyari.com/2015/12/21/data-preparation-for-predictive-modeling-resolving-skewness/
 
 
-        transforms = [boxcox1p, np.sqrt, np.log1p]
+        #transforms = [boxcox1p, np.sqrt, np.log1p]
         for feature in numeric_features:
-            feat_values = train_df[feature].values
-            # ignore some columns
-            if feature in ["YearBuilt", "YearRemodAdd", "GarageYrBlt", "SalePrice", "Id"]:
-                continue
-            else:
-                if abs(skew(feat_values)) > 1:
-                    # value is skewed, try a transform, keep the winner
-                    skews = [skew(feat_values)]
-                    for transform in transforms:
-                        if transform == boxcox1p:
-                            skews.append(abs(skew(boxcox1p(feat_values, 0.25))))
-                        else:
-                            skews.append(abs(skew(transform(feat_values))))
+            train_df, transform = unskew_feature(feature, train_df, transform = None)
+            test_df, _ = unskew_feature(feature, test_df, transform = transform)
+            # feat_values = train_df[feature].values
+            # # ignore some columns
+            # if feature in ["YearBuilt", "YearRemodAdd", "GarageYrBlt", "SalePrice", "Id"]:
+            #     continue
+            # else:
+            #     if abs(skew(feat_values)) > 1:
+            #         # value is skewed, try a transform, keep the winner
+            #         skews = [skew(feat_values)]
+            #         for transform in transforms:
+            #             if transform == boxcox1p:
+            #                 skews.append(abs(skew(boxcox1p(feat_values, 0.25))))
+            #             else:
+            #                 skews.append(abs(skew(transform(feat_values))))
 
-                    best_transform = np.argmin(skews)
-                    if best_transform == 0:
-                        # don't transform because the skew didn't decrease
-                        continue
-                    else:
-                        transform = transforms[best_transform - 1]
-                        if transform == boxcox1p:
-                            train_df[feature] = boxcox1p(train_df[feature].values, 0.25)
-                            test_df[feature] = boxcox1p(test_df[feature].values, 0.25)
-                        else:
-                            train_df[feature] = transform(train_df[feature].values)
-                            test_df[feature] = transform(test_df[feature].values)
+            #         best_transform = np.argmin(skews)
+            #         if best_transform == 0:
+            #             # don't transform because the skew didn't decrease
+            #             continue
+            #         else:
+            #             transform = transforms[best_transform - 1]
+            #             if transform == boxcox1p:
+            #                 train_df[feature] = boxcox1p(train_df[feature].values, 0.25)
+            #                 test_df[feature] = boxcox1p(test_df[feature].values, 0.25)
+            #             else:
+            #                 train_df[feature] = transform(train_df[feature].values)
+            #                 test_df[feature] = transform(test_df[feature].values)
 
 
     # one-hot encode the categorical columns
     train_df = pd.get_dummies(train_df, columns = categorical_cols)
     test_df = pd.get_dummies(test_df, columns = categorical_cols)
 
-    train_targets = train_df.pop("SalePrice")
+    
 
 
     # some columns from train_df might not be present in test_df- just add them and set them to 0
