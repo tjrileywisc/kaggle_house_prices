@@ -47,6 +47,10 @@ def preprocess(unskew):
     train_df = pd.read_csv("./data/train.csv")
     test_df = pd.read_csv("./data/test.csv")
 
+    # filter out high price homes (long, light tail)
+    train_df = train_df[train_df["SalePrice"] < 320000]
+
+
     train_targets = train_df.pop("SalePrice")
     
     categorical_cols = train_df.dtypes[train_df.dtypes == "object"].index
@@ -72,38 +76,10 @@ def preprocess(unskew):
         # if skewed, try box-cox transformation or several others
         # ref: http://shahramabyari.com/2015/12/21/data-preparation-for-predictive-modeling-resolving-skewness/
 
-
         #transforms = [boxcox1p, np.sqrt, np.log1p]
         for feature in numeric_features:
             train_df, transform = unskew_feature(feature, train_df, transform = None)
             test_df, _ = unskew_feature(feature, test_df, transform = transform)
-            # feat_values = train_df[feature].values
-            # # ignore some columns
-            # if feature in ["YearBuilt", "YearRemodAdd", "GarageYrBlt", "SalePrice", "Id"]:
-            #     continue
-            # else:
-            #     if abs(skew(feat_values)) > 1:
-            #         # value is skewed, try a transform, keep the winner
-            #         skews = [skew(feat_values)]
-            #         for transform in transforms:
-            #             if transform == boxcox1p:
-            #                 skews.append(abs(skew(boxcox1p(feat_values, 0.25))))
-            #             else:
-            #                 skews.append(abs(skew(transform(feat_values))))
-
-            #         best_transform = np.argmin(skews)
-            #         if best_transform == 0:
-            #             # don't transform because the skew didn't decrease
-            #             continue
-            #         else:
-            #             transform = transforms[best_transform - 1]
-            #             if transform == boxcox1p:
-            #                 train_df[feature] = boxcox1p(train_df[feature].values, 0.25)
-            #                 test_df[feature] = boxcox1p(test_df[feature].values, 0.25)
-            #             else:
-            #                 train_df[feature] = transform(train_df[feature].values)
-            #                 test_df[feature] = transform(test_df[feature].values)
-
 
     # one-hot encode the categorical columns
     train_df = pd.get_dummies(train_df, columns = categorical_cols)
@@ -116,6 +92,10 @@ def preprocess(unskew):
     for col in train_df.columns:
         if col not in test_df.columns:
             test_df[col] = 0
+
+    for col in test_df.columns:
+        if col not in train_df.columns:
+            train_df[col] = 0
 
 
     # confirm that the same number of features exist in both datasets
@@ -143,9 +123,6 @@ def preprocess(unskew):
     pickle.dump(train_targets, open("./data/train_targets.pickle", "wb"))
     train_df.to_pickle("./data/train_df.pickle")
     test_df.to_pickle("./data/test_df.pickle")
-
-    train_df.to_csv("./data/train_df.csv")
-    test_df.to_csv("./data/test_df.csv")
 
 if __name__ == "__main__":
     preprocess(unskew = True)

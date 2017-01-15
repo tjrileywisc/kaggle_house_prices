@@ -11,8 +11,13 @@ from preprocess_data import preprocess
 
 import os
 
+
+# objective is root mean square error
+def rmse_loss(y_true, y_pred):
+    return np.sqrt(mean_squared_error(y_true, y_pred))
+
 # choose whether or not to unskew the data
-unskew = False
+unskew = True
 
 if not os.path.exists("./data/train_df.pickle"):
     preprocess(unskew)
@@ -24,30 +29,27 @@ test_df = pd.read_pickle("./data/test_df.pickle")
 test_df_ids = test_df.pop("Id")
 train_targets = pickle.load(open("./data/train_targets.pickle", mode = "rb"))
 
-train_xgb = xgb.DMatrix(train_df.values, label = train_targets)
-
-
-
 clf = RandomForestRegressor(n_estimators=100)
 
 X = train_df.values
 y = train_targets
 
 # objective is root mean square error
-mse = make_scorer(mean_squared_error)
-scores = cross_val_score(clf, X, y, cv = 5, scoring = mse)
+rmse = make_scorer(rmse_loss, greater_is_better=False)
+
+scores = cross_val_score(clf, X, y, cv = 5, scoring = rmse)
 print(scores)
 
 clf.fit(X, y)
 
-# plot the feature importances
+# get the feature importances
 importances = clf.feature_importances_
 
-X = X[:, importances > 1e-3]
+X = X[:, importances > 1e-4]
 # fit again with the filtered features
 clf.fit(X, y)
 
-test_features = test_df.values[:, importances > 1e-3]
+test_features = test_df.values[:, importances > 1e-4]
 
 
 result = clf.predict(test_features)
